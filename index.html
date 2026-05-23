@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo Dashboard</title>
+    <style>
+        /* --- Base Theme & Reset --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #1a1a1a; color: white; display: grid; grid-template-columns: 3fr 1fr; height: 100vh; overflow: hidden; }
+        
+        /* --- Colors --- */
+        :root {
+            --panel-bg: #2b2b2b; --card-bg: #3a3a3a; --border: #444;
+            --primary: #1f6aa5; --primary-hover: #144870;
+            --danger: #cc0000; --danger-hover: #990000;
+            --high: #ff4d4d; --med: #ffa64d; --low: #4dff4d;
+        }
+
+        /* --- Panels --- */
+        .left-panel { padding: 30px; display: flex; flex-direction: column; overflow-y: hidden; }
+        .right-panel { background-color: var(--panel-bg); padding: 30px 20px; overflow-y: auto; border-left: 2px solid var(--border); }
+
+        h1, h2, h3 { margin-bottom: 15px; }
+        
+        /* --- Input Form --- */
+        .input-group { display: flex; gap: 10px; margin-bottom: 25px; }
+        input, select, button { padding: 10px; border-radius: 5px; border: 1px solid var(--border); background-color: #333; color: white; font-size: 14px; }
+        input[type="text"] { flex: 1; }
+        input:focus, select:focus { outline: 2px solid var(--primary); }
+        button { background-color: var(--primary); cursor: pointer; font-weight: bold; border: none; transition: 0.2s; }
+        button:hover { background-color: var(--primary-hover); }
+
+        /* --- Task Table --- */
+        .table-header { display: flex; background-color: var(--panel-bg); padding: 10px 15px; border-radius: 5px; font-weight: bold; margin-bottom: 10px; }
+        .task-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+        .task-row { display: flex; align-items: center; background-color: #333; padding: 10px 15px; border-radius: 5px; transition: 0.2s; }
+        .task-row:hover { background-color: #3a3a3a; }
+        
+        .col-task { width: 180px; display: flex; align-items: center; gap: 10px; font-weight: bold;}
+        .col-prio { width: 80px; font-weight: bold; }
+        .col-desc { flex: 1; color: #ccc; font-size: 13px; }
+        .col-act { width: 40px; text-align: right; }
+        
+        .completed-text { text-decoration: line-through; color: #888; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+        .btn-delete { background-color: var(--danger); padding: 6px 12px; }
+        .btn-delete:hover { background-color: var(--danger-hover); }
+
+        /* --- Dashboard Cards --- */
+        .progress-container { text-align: center; margin-bottom: 30px; }
+        .pct-text { font-size: 48px; font-weight: bold; color: var(--primary); margin-bottom: 10px;}
+        .progress-bar-bg { width: 100%; height: 12px; background-color: #555; border-radius: 10px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.4s ease; }
+
+        .card-row { display: flex; gap: 10px; margin-bottom: 25px; }
+        .card { background-color: var(--card-bg); flex: 1; padding: 15px; border-radius: 8px; text-align: center; }
+        .card-num { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
+        .card-label { font-size: 12px; color: #ccc; }
+        
+        .mini-bar-bg { width: 100%; height: 6px; background-color: #555; border-radius: 3px; margin: 8px 0; overflow: hidden;}
+        .mini-bar-fill { height: 100%; width: 0%; transition: 0.4s ease; }
+
+        /* --- Custom Bar Graph --- */
+        .graph-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; margin-top: 10px; }
+        .legend { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-box { width: 12px; height: 12px; border-radius: 2px; }
+        
+        .graph-area { height: 160px; display: flex; align-items: flex-end; justify-content: space-around; padding-bottom: 20px; position: relative; border-bottom: 2px solid #666; margin-bottom: 30px; }
+        .bar-group { display: flex; gap: 4px; height: 100%; align-items: flex-end; position: relative; width: 40px; justify-content: center;}
+        .bar-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 18px; }
+        .bar { width: 100%; border-radius: 3px 3px 0 0; transition: height 0.4s ease; }
+        .bar-label { font-size: 11px; margin-bottom: 5px; font-weight: bold;}
+        .axis-label { position: absolute; bottom: -25px; font-size: 12px; font-weight: bold; width: 100%; text-align: center;}
+
+        /* Utility Colors */
+        .text-high { color: var(--high); }
+        .text-med { color: var(--med); }
+        .text-low { color: var(--low); }
+        .bg-high { background-color: var(--high); }
+        .bg-med { background-color: var(--med); }
+        .bg-low { background-color: var(--low); }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT PANEL: TASK LIST -->
+    <div class="left-panel">
+        <h1>My Tasks</h1>
+        
+        <div class="input-group">
+            <input type="text" id="taskInput" placeholder="Task..." style="flex: 0.5;">
+            <input type="text" id="descInput" placeholder="Details / Description...">
+            <select id="prioInput">
+                <option value="High">High</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="Low">Low</option>
+            </select>
+            <button onclick="addTask()">Add Task</button>
+        </div>
+
+        <div class="table-header">
+            <div class="col-task">Task</div>
+            <div class="col-prio">Priority</div>
+            <div class="col-desc">Details</div>
+            <div class="col-act">Action</div>
+        </div>
+
+        <div class="task-list" id="taskList">
+            <!-- Tasks injected here by JS -->
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: KPI DASHBOARD -->
+    <div class="right-panel">
+        <div class="progress-container">
+            <h2>Total Progress</h2>
+            <div class="pct-text" id="mainPct">0%</div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="mainBar"></div>
+            </div>
+        </div>
+
+        <h2>Task Status</h2>
+        <div class="card-row">
+            <div class="card">
+                <div class="card-num text-low" id="compNum">0</div>
+                <div class="card-label">Completed</div>
+            </div>
+            <div class="card">
+                <div class="card-num text-med" id="pendNum">0</div>
+                <div class="card-label">Pending</div>
+            </div>
+        </div>
+
+        <h2>Priority Progress</h2>
+        <div class="card-row">
+            <div class="card">
+                <div class="text-high" style="font-weight: bold; font-size: 14px;">High</div>
+                <div class="mini-bar-bg"><div class="mini-bar-fill bg-high" id="highBar"></div></div>
+                <div class="card-label" id="highStats">P: 0 | C: 0</div>
+            </div>
+            <div class="card">
+                <div class="text-med" style="font-weight: bold; font-size: 14px;">Medium</div>
+                <div class="mini-bar-bg"><div class="mini-bar-fill bg-med" id="medBar"></div></div>
+                <div class="card-label" id="medStats">P: 0 | C: 0</div>
+            </div>
+            <div class="card">
+                <div class="text-low" style="font-weight: bold; font-size: 14px;">Low</div>
+                <div class="mini-bar-bg"><div class="mini-bar-fill bg-low" id="lowBar"></div></div>
+                <div class="card-label" id="lowStats">P: 0 | C: 0</div>
+            </div>
+        </div>
+
+        <div class="graph-card">
+            <div class="legend">
+                <div class="legend-item"><div class="legend-box bg-med"></div> Pending</div>
+                <div class="legend-item"><div class="legend-box bg-low"></div> Completed</div>
+            </div>
+            <div class="graph-area">
+                <!-- High Bar Group -->
+                <div class="bar-group">
+                    <div class="bar-container"><div class="bar-label" id="lbl_hp">0</div><div class="bar bg-med" id="bar_hp" style="height: 0%;"></div></div>
+                    <div class="bar-container"><div class="bar-label" id="lbl_hc">0</div><div class="bar bg-low" id="bar_hc" style="height: 0%;"></div></div>
+                    <div class="axis-label text-high">High</div>
+                </div>
+                <!-- Medium Bar Group -->
+                <div class="bar-group">
+                    <div class="bar-container"><div class="bar-label" id="lbl_mp">0</div><div class="bar bg-med" id="bar_mp" style="height: 0%;"></div></div>
+                    <div class="bar-container"><div class="bar-label" id="lbl_mc">0</div><div class="bar bg-low" id="bar_mc" style="height: 0%;"></div></div>
+                    <div class="axis-label text-med">Med</div>
+                </div>
+                <!-- Low Bar Group -->
+                <div class="bar-group">
+                    <div class="bar-container"><div class="bar-label" id="lbl_lp">0</div><div class="bar bg-med" id="bar_lp" style="height: 0%;"></div></div>
+                    <div class="bar-container"><div class="bar-label" id="lbl_lc">0</div><div class="bar bg-low" id="bar_lc" style="height: 0%;"></div></div>
+                    <div class="axis-label text-low">Low</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Load tasks from Local Storage, or default to an empty array
+        let tasks = JSON.parse(localStorage.getItem('todo_tasks')) || [];
+
+        function saveTasks() {
+            localStorage.setItem('todo_tasks', JSON.stringify(tasks));
+            renderUI();
+        }
+
+        function addTask() {
+            const name = document.getElementById('taskInput').value.trim();
+            const desc = document.getElementById('descInput').value.trim();
+            const prio = document.getElementById('prioInput').value;
+
+            if (name === "") return;
+
+            const newTask = {
+                id: Date.now(), // Generate a unique ID
+                name: name,
+                desc: desc || "-",
+                priority: prio,
+                completed: false
+            };
+
+            tasks.push(newTask);
+            
+            // Clear inputs
+            document.getElementById('taskInput').value = "";
+            document.getElementById('descInput').value = "";
+            document.getElementById('prioInput').value = "Medium";
+            
+            saveTasks();
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+        }
+
+        function renderUI() {
+            const listEl = document.getElementById('taskList');
+            listEl.innerHTML = ""; // Clear current list
+
+            // Tracking variables for dashboard
+            let comp = 0, pend = 0;
+            let hp = 0, hc = 0, mp = 0, mc = 0, lp = 0, lc = 0;
+
+            tasks.forEach(task => {
+                // Dashboard calculations
+                if (task.completed) {
+                    comp++;
+                    if (task.priority === "High") hc++;
+                    else if (task.priority === "Medium") mc++;
+                    else if (task.priority === "Low") lc++;
+                } else {
+                    pend++;
+                    if (task.priority === "High") hp++;
+                    else if (task.priority === "Medium") mp++;
+                    else if (task.priority === "Low") lp++;
+                }
+
+                // UI Rendering
+                const row = document.createElement('div');
+                row.className = 'task-row';
+
+                // Determine text color based on priority
+                let prioClass = task.priority === "High" ? "text-high" : (task.priority === "Medium" ? "text-med" : "text-low");
+                let textStyle = task.completed ? "completed-text" : "";
+
+                row.innerHTML = `
+                    <div class="col-task ${textStyle}">
+                        <input type="checkbox" ${task.completed ? "checked" : ""} onchange="toggleTask(${task.id})">
+                        ${task.name}
+                    </div>
+                    <div class="col-prio ${prioClass} ${textStyle}">${task.priority}</div>
+                    <div class="col-desc ${textStyle}">${task.desc}</div>
+                    <div class="col-act">
+                        <button class="btn-delete" onclick="deleteTask(${task.id})">X</button>
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+
+            updateDashboard(comp, pend, hp, hc, mp, mc, lp, lc);
+        }
+
+        function updateDashboard(c, p, hp, hc, mp, mc, lp, lc) {
+            const total = c + p;
+            const pct = total === 0 ? 0 : Math.round((c / total) * 100);
+            
+            // 1. Main Progress
+            document.getElementById('mainPct').innerText = `${pct}%`;
+            document.getElementById('mainBar').style.width = `${pct}%`;
+
+            // 2. Status Cards
+            document.getElementById('compNum').innerText = c;
+            document.getElementById('pendNum').innerText = p;
+
+            // 3. Priority Cards
+            const setPrioCard = (prefix, pending, completed) => {
+                const tot = pending + completed;
+                const percent = tot === 0 ? 0 : (completed / tot) * 100;
+                document.getElementById(`${prefix}Bar`).style.width = `${percent}%`;
+                document.getElementById(`${prefix}Stats`).innerText = `P: ${pending} | C: ${completed}`;
+            };
+            setPrioCard('high', hp, hc);
+            setPrioCard('med', mp, mc);
+            setPrioCard('low', lp, lc);
+
+            // 4. Bar Graph Updates
+            const maxVal = Math.max(hp, hc, mp, mc, lp, lc, 1); // Ensure max is at least 1 to avoid div-by-zero
+
+            const setBar = (id, val) => {
+                const heightPct = (val / maxVal) * 100;
+                document.getElementById(`bar_${id}`).style.height = `${heightPct}%`;
+                const lbl = document.getElementById(`lbl_${id}`);
+                lbl.innerText = val;
+                lbl.style.opacity = val > 0 ? "1" : "0"; // Hide label if 0
+            };
+
+            setBar('hp', hp); setBar('hc', hc);
+            setBar('mp', mp); setBar('mc', mc);
+            setBar('lp', lp); setBar('lc', lc);
+        }
+
+        // Initial render on page load
+        renderUI();
+    </script>
+</body>
+</html>
